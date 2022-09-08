@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { io } from 'socket.io-client';
@@ -11,12 +11,17 @@ export default function RoomPage() {
   const { roomId } = useParams();
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  const [isConnectionLost, setIsConnectionLost] = useState(false);
+  const [errorOnConnect, setErrorOnConnect] = useState<any | null>(null);
+
   useEffect(() => {
     let mediaRecorder: MediaRecorder | null = null;
-    const socket = io('wss://localhost:3333');
+    const socket = io('http://localhost:3333');
     socket.on('connect', () => {
+      setErrorOnConnect(null);
+      setIsConnectionLost(false);
       console.log('socket connected');
-      navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           mediaRecorder = new MediaRecorder(stream);
@@ -26,12 +31,25 @@ export default function RoomPage() {
       });
     });
 
+    socket.on('disconnect', (reason: string) => {
+      console.log('disconnect because of ' + reason);
+      if (['io server disconnect', 'transport close'].includes(reason)) {
+        setIsConnectionLost(true);
+      }
+    });
+
+    socket.on('connect_error', (error) => {
+      console.log('connect error with ' + error);
+      setErrorOnConnect(error);
+    });
+
     function handleDataAvailable(event: BlobEvent) {
-      console.log(event.data);
+      console.log('sending data: ', event.data);
       socket.emit('stream-video', event.data);
     }
 
     return () => {
+      console.log('OII');
       mediaRecorder?.removeEventListener('dataavailable', handleDataAvailable);
       socket.disconnect();
     };
@@ -40,6 +58,8 @@ export default function RoomPage() {
   return (
     <div className="App">
       <p>Room ID: {roomId}</p>
+      {isConnectionLost && <p>Connection lost, trying to reconnect...</p>}
+      {errorOnConnect && <p>Error on connect: {errorOnConnect?.message}</p>}
       <Video ref={videoRef} autoPlay />
     </div>
   );
