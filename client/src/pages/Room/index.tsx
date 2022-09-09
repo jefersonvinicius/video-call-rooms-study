@@ -26,6 +26,7 @@ export default function RoomPage() {
           videoRef.current.srcObject = stream;
           mediaRecorder = new MediaRecorder(stream);
           mediaRecorder.addEventListener('dataavailable', handleDataAvailable);
+          mediaRecorder.addEventListener('stop', handleStopRecorder);
           mediaRecorder.start(1000);
         }
       });
@@ -48,9 +49,14 @@ export default function RoomPage() {
       socket.emit('stream-video', event.data);
     }
 
+    function handleStopRecorder() {
+      console.log('Stopping on server');
+      socket.emit('stop-stream-video');
+    }
+
     return () => {
-      console.log('OII');
-      mediaRecorder?.removeEventListener('dataavailable', handleDataAvailable);
+      mediaRecorder?.stream.getTracks().forEach((track) => track.stop());
+      mediaRecorder?.stop();
       socket.disconnect();
     };
   }, []);
