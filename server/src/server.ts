@@ -1,12 +1,12 @@
-import express from 'express';
 import cors from 'cors';
-import { RoomsRepository } from './repositories/rooms';
-import { UsersRepository } from './repositories/users';
-import { Server, Socket } from 'socket.io';
+import express from 'express';
 import http from 'http';
 import fs from 'node:fs';
+import { Server, Socket } from 'socket.io';
 import { CONFIG } from './config';
-import { Duplex } from 'stream';
+import { Room } from './entities/room';
+import { User } from './entities/user';
+import { VideoStream } from './video-stream';
 
 function log(message: string) {
   console.log(`[LOG ${new Date().toISOString()}]: ${message}`);
@@ -25,38 +25,7 @@ class UserSocket {
   constructor(readonly userId: string, readonly socket: Socket) {}
 }
 
-const roomsRepository = new RoomsRepository();
-const usersRepository = new UsersRepository();
-
-class VideoStream {
-  private fsStream: fs.WriteStream;
-  private videoStream: Duplex;
-
-  constructor(readonly socket: Socket) {
-    this.fsStream = fs.createWriteStream(`${CONFIG.VIDEOS_OUTPUT_PATH}/${Date.now()}-${socket.id}.webm`);
-    this.videoStream = new Duplex({
-      write(chunk, _, callback) {
-        this.push(chunk);
-        callback();
-      },
-      read() {},
-    });
-    this.videoStream.pipe(this.fsStream);
-  }
-
-  destroy() {
-    this.fsStream.close();
-  }
-
-  write(chunk: Buffer) {
-    this.videoStream.write(chunk);
-  }
-
-  get stream() {
-    return this.videoStream;
-  }
-}
-
+const rooms = new Map<string, Room>();
 const sockets = new Map<string, UserSocket>();
 const streams = new Map<string, VideoStream>();
 
@@ -75,6 +44,11 @@ io.on('connection', (socket) => {
     streams.get(socket.id)?.destroy();
   });
 
+  socket.on('join-room', ({ roomId }: { roomId: string }) => {
+    console.log(`Joining in the room ${roomId}`);
+    const room = socket.join(roomId);
+  });
+
   socket.on('disconnect', () => {
     log(`Socket ${socket.id} disconnected`);
     streams.get(socket.id)?.destroy();
@@ -83,31 +57,43 @@ io.on('connection', (socket) => {
 });
 
 app.post('/users', (request, response) => {
-  const user = usersRepository.create();
+  const user = new User();
   return response.json(user.render());
 });
 
 app.get('/users/streams/:socketId', (request, response) => {
   const videoStream = streams.get(request.params.socketId);
-  if (!videoStream) return response.status(404).json({ message: 'Stream not found' });
+  if (!videoStream) return response.sendStatus(404);
 
+  response.header('content-type', 'video/webm');
   return videoStream.stream.pipe(response);
 });
 
+app.get('/users/videos/:videoName', (request, response) => {
+  const videoPath = `${CONFIG.VIDEOS_OUTPUT_PATH}/${request.params.videoName}.webm`;
+  if (!fs.existsSync(videoPath)) return response.sendStatus(404);
+
+  const videoStream = fs.createReadStream(videoPath, {
+    autoClose: true,
+  });
+  response.header('content-type', 'video/webm');
+  return videoStream.pipe(response);
+});
+
 app.post('/rooms', (request, response) => {
-  const room = roomsRepository.create();
+  const room = new Room();
   return response.json(room.render());
 });
 
-function clearApp() {
+function handleAppError() {
   Array.from(sockets.values()).forEach((socket) => socket.socket.disconnect(true));
   Array.from(streams.values()).forEach((stream) => stream.destroy());
   io.close(() => console.log('Socket server closed'));
   server.close(() => console.log('HTTP Server closed'));
 }
 
-process.on('SIGINT', clearApp);
-process.on('uncaughtException', clearApp);
-process.on('unhandledRejection', clearApp);
+process.on('SIGINT', handleAppError);
+process.on('uncaughtException', handleAppError);
+process.on('unhandledRejection', handleAppError);
 
 export default server;

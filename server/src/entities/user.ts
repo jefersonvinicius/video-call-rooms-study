@@ -9,6 +9,10 @@ export class User {
     this.createdAt = new Date();
   }
 
+  get id() {
+    return this._id;
+  }
+
   render() {
     return { id: this._id, created_at: this.createdAt.toISOString() };
   }
