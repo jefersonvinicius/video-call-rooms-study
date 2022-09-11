@@ -22,17 +22,23 @@ const io = new Server(server, {
 });
 
 class UserSocket {
-  constructor(readonly userId: string, readonly socket: Socket) {}
+  constructor(readonly user: User, readonly socket: Socket) {}
 }
 
 const rooms = new Map<string, Room>();
 const sockets = new Map<string, UserSocket>();
 const streams = new Map<string, VideoStream>();
+const usersCache = new Map<string, User>();
 
 io.on('connection', (socket) => {
   log(`Socket ${socket.id} connected`);
-  sockets.set(socket.id, new UserSocket('', socket));
   streams.set(socket.id, new VideoStream(socket));
+
+  socket.on('set-user-info', (params: { userId: string }) => {
+    log(`Setting user id ${params.userId} to socket ${socket.id}`);
+    const userSocket = new UserSocket(usersCache.get(params.userId)!, socket);
+    sockets.set(socket.id, userSocket);
+  });
 
   socket.on('stream-video', (data) => {
     log(`Receiving data from socket ${socket.id}`);
@@ -44,9 +50,14 @@ io.on('connection', (socket) => {
     streams.get(socket.id)?.destroy();
   });
 
-  socket.on('join-room', ({ roomId }: { roomId: string }) => {
-    console.log(`Joining in the room ${roomId}`);
-    const room = socket.join(roomId);
+  socket.on('join-room', async ({ roomId }: { roomId: string }, callback?: () => void) => {
+    log(`Joining in the room ${roomId}`);
+
+    await socket.join(roomId);
+    const userSocket = sockets.get(socket.id);
+    rooms.get(roomId)?.addUser(userSocket!.user);
+    io.to(roomId).emit('joined-user', userSocket?.user);
+    callback?.();
   });
 
   socket.on('disconnect', () => {
@@ -54,19 +65,6 @@ io.on('connection', (socket) => {
     streams.get(socket.id)?.destroy();
     sockets.delete(socket.id);
   });
-});
-
-app.post('/users', (request, response) => {
-  const user = new User();
-  return response.json(user.render());
-});
-
-app.get('/users/streams/:socketId', (request, response) => {
-  const videoStream = streams.get(request.params.socketId);
-  if (!videoStream) return response.sendStatus(404);
-
-  response.header('content-type', 'video/webm');
-  return videoStream.stream.pipe(response);
 });
 
 app.get('/users/videos/:videoName', (request, response) => {
@@ -80,9 +78,28 @@ app.get('/users/videos/:videoName', (request, response) => {
   return videoStream.pipe(response);
 });
 
+app.post('/users', (request, response) => {
+  const user = new User();
+  usersCache.set(user.id, user);
+  return response.json(user.render());
+});
+
 app.post('/rooms', (request, response) => {
+  console.log(request.headers);
+  const userId = String(request.header('userId'));
+  log(`Creating room to user ${userId}`);
+
   const room = new Room();
+  room.addUser(usersCache.get(userId)!);
+  rooms.set(room.id, room);
   return response.json(room.render());
+});
+
+app.get('/rooms/:roomId', (request, response) => {
+  const room = rooms.get(request.params.roomId);
+  if (!room) return response.status(404).json({ message: 'Room not found' });
+
+  return response.json({ room: room.render() });
 });
 
 function handleAppError() {

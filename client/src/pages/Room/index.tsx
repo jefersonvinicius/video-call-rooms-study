@@ -21,7 +21,7 @@ export default function RoomPage() {
       setErrorOnConnect(null);
       setIsConnectionLost(false);
       console.log('socket connected');
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
+      navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           mediaRecorder = new MediaRecorder(stream);
@@ -61,9 +61,19 @@ export default function RoomPage() {
     };
   }, []);
 
+  const link = `${window.location.origin}/waiting-room/${roomId}`;
+
+  async function handleCopyLink() {
+    await navigator.clipboard.writeText(link);
+  }
+
   return (
     <div className="App">
       <p>Room ID: {roomId}</p>
+      <p>
+        Share: {link}
+        <button onClick={handleCopyLink}>Copy</button>
+      </p>
       {isConnectionLost && <p>Connection lost, trying to reconnect...</p>}
       {errorOnConnect && <p>Error on connect: {errorOnConnect?.message}</p>}
       <Video ref={videoRef} autoPlay />

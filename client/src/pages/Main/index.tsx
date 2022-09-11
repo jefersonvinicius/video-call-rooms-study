@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { API } from 'api';
 import { User } from 'entities/user';
 import { useNavigate } from 'react-router-dom';
+import { configureUserIdHeaderInterceptor, removeRequestInterceptor } from 'api/interceptors';
 
 function useCreateUser() {
   const [user, setUser] = useState<User | null>(null);
@@ -16,6 +17,15 @@ function useCreateUser() {
 export default function MainPage() {
   const { user } = useCreateUser();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) return;
+
+    const interceptorId = configureUserIdHeaderInterceptor(user?.id);
+    return () => {
+      removeRequestInterceptor(interceptorId);
+    };
+  }, [user]);
 
   async function handleCreateRoomClick() {
     const room = await API.Rooms.create();

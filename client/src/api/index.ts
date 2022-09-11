@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Room } from 'entities/room';
 import { User } from 'entities/user';
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: 'http://localhost:3333',
 });
 
@@ -14,9 +14,21 @@ class Users {
 }
 
 class Rooms {
-  static async create() {
+  static async create(): Promise<Room> {
     const { data } = await api.post('/rooms');
-    return { id: data.id, createdAt: new Date(data.created_at) } as Room;
+    return { id: data.id, createdAt: new Date(data.created_at), users: [] };
+  }
+
+  static async fetchOne(params: { id: string }): Promise<Room> {
+    const { data } = await api.get(`/rooms/${params.id}`);
+    return {
+      id: data.room.id,
+      createdAt: new Date(data.room.created_at),
+      users: data.room.users.map((u: any) => ({
+        id: u.id,
+        createdAt: new Date(u.created_at),
+      })),
+    };
   }
 }
 

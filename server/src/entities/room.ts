@@ -20,10 +20,14 @@ export class Room {
   }
 
   render() {
-    return { id: this._id, created_at: this.createdAt.toISOString() };
+    return { id: this._id, created_at: this.createdAt.toISOString(), users: this.users.map((u) => u.render()) };
+  }
+
+  get id() {
+    return this._id;
   }
 
   get users() {
-    return this._users.slice();
+    return Array.from(this._users);
   }
 }
