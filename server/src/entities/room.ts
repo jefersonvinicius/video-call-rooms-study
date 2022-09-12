@@ -12,7 +12,7 @@ export class Room {
   }
 
   addUser(user: User) {
-    this.users.push(user);
+    this._users.push(user);
   }
 
   removeUser(userId: string) {

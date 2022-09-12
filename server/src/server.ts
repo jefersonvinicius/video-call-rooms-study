@@ -85,12 +85,11 @@ app.post('/users', (request, response) => {
 });
 
 app.post('/rooms', (request, response) => {
-  console.log(request.headers);
   const userId = String(request.header('userId'));
-  log(`Creating room to user ${userId}`);
-
+  const user = usersCache.get(userId)!;
+  log(`Creating room to user ${user.id}`);
   const room = new Room();
-  room.addUser(usersCache.get(userId)!);
+  room.addUser(user);
   rooms.set(room.id, room);
   return response.json(room.render());
 });
