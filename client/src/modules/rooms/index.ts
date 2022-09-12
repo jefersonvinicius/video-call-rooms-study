@@ -1,4 +1,4 @@
-import { User } from './user';
+import { User } from '../users';
 
 export type Room = {
   id: string;

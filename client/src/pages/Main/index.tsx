@@ -1,18 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { API } from 'api';
-import { User } from 'entities/user';
 import { useNavigate } from 'react-router-dom';
 import { configureUserIdHeaderInterceptor, removeRequestInterceptor } from 'api/interceptors';
-
-function useCreateUser() {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    API.Users.create().then(setUser);
-  }, []);
-
-  return { user };
-}
+import { useCreateUser } from 'modules/users/hooks';
 
 export default function MainPage() {
   const { user } = useCreateUser();

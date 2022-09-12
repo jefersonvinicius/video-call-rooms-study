@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { io } from 'socket.io-client';
+import { useUser } from 'modules/users/state';
 export const Video = styled.video`
   width: 100px;
   height: 100px;
@@ -9,6 +10,7 @@ export const Video = styled.video`
 
 export default function RoomPage() {
   const { roomId } = useParams();
+  const user = useUser();
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [isConnectionLost, setIsConnectionLost] = useState(false);
@@ -16,7 +18,7 @@ export default function RoomPage() {
 
   useEffect(() => {
     let mediaRecorder: MediaRecorder | null = null;
-    const socket = io('http://localhost:3333');
+    const socket = user?.socket ?? io('http://localhost:3333');
     socket.on('connect', () => {
       setErrorOnConnect(null);
       setIsConnectionLost(false);
@@ -59,7 +61,7 @@ export default function RoomPage() {
       mediaRecorder?.stop();
       socket.disconnect();
     };
-  }, []);
+  }, [user?.socket]);
 
   const link = `${window.location.origin}/waiting-room/${roomId}`;
 

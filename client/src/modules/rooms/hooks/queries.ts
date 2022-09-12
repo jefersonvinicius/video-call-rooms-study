@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { API } from 'api';
+import { API } from 'services/api';
 
 export type RoomParams = {
   roomId: string | undefined;

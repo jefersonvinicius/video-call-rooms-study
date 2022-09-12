@@ -1,11 +1,15 @@
 import React from 'react';
-import { useRoom } from 'queries/rooms';
+import { useRoom } from 'modules/rooms/hooks/queries';
+import { useConfigureUser } from 'modules/users/hooks';
 import { useParams } from 'react-router-dom';
 
 export default function WaitingRoom() {
   const { roomId } = useParams();
 
+  const { user } = useConfigureUser();
   const { room } = useRoom({ roomId });
+
+  function handleJoinClick() {}
 
   return (
     <div>
@@ -17,6 +21,9 @@ export default function WaitingRoom() {
           return <li key={user.id}>{user.id}</li>;
         })}
       </ul>
+      <button onClick={handleJoinClick} disabled={!user}>
+        Join
+      </button>
     </div>
   );
 }
