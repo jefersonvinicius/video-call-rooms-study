@@ -1,4 +1,5 @@
 import { atom, useRecoilState, useRecoilValue } from 'recoil';
+
 import { User } from '..';
 
 const userAtom = atom<User | null>({

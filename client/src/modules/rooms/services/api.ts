@@ -1,7 +1,7 @@
 import { AxiosInstance } from 'axios';
 import { Room } from '..';
 
-export class RoomsService {
+export class RoomsAPI {
   constructor(readonly api: AxiosInstance) {}
 
   async create(): Promise<Room> {

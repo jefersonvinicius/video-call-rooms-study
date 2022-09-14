@@ -1,13 +1,13 @@
 import axios from 'axios';
-import { RoomsService } from 'modules/rooms/services/api';
-import { UsersService } from 'modules/users/services/api';
+import { RoomsAPI } from 'modules/rooms/services/api';
+import { UsersAPI } from 'modules/users/services/api';
 
 export const api = axios.create({
   baseURL: 'http://localhost:3333',
 });
 
-const userServices = new UsersService(api);
-const roomsServices = new RoomsService(api);
+const userServices = new UsersAPI(api);
+const roomsServices = new RoomsAPI(api);
 
 export class API {
   static get Users() {

@@ -2,14 +2,20 @@ import React from 'react';
 import { useRoom } from 'modules/rooms/hooks/queries';
 import { useConfigureUser } from 'modules/users/hooks';
 import { useParams } from 'react-router-dom';
+import { useUserSocket } from 'contexts/UserSocketContext';
 
 export default function WaitingRoom() {
   const { roomId } = useParams();
 
   const { user } = useConfigureUser();
+  const { getSocket } = useUserSocket();
   const { room } = useRoom({ roomId });
 
-  function handleJoinClick() {}
+  function handleJoinClick() {
+    getSocket()?.emit('join-room', { roomId }, () => {
+      console.log('Joined!!');
+    });
+  }
 
   return (
     <div>

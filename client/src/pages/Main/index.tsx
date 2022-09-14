@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
-import { API } from 'api';
+import { API } from 'services/api';
 import { useNavigate } from 'react-router-dom';
-import { configureUserIdHeaderInterceptor, removeRequestInterceptor } from 'api/interceptors';
-import { useCreateUser } from 'modules/users/hooks';
+import { configureUserIdHeaderInterceptor, removeRequestInterceptor } from 'services/api/interceptors';
+import { useConfigureUser } from 'modules/users/hooks';
+import { useUserSocket } from 'contexts/UserSocketContext';
 
 export default function MainPage() {
-  const { user } = useCreateUser();
+  const { user } = useConfigureUser();
+  const { isConnecting } = useUserSocket();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,7 +27,9 @@ export default function MainPage() {
   return (
     <div className="App">
       <p>Your ID: {user?.id}</p>
-      <button onClick={handleCreateRoomClick}>Create Room</button>
+      <button onClick={handleCreateRoomClick} disabled={isConnecting}>
+        Create Room
+      </button>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { api } from 'api';
+import { api } from 'services/api';
 
 export function configureUserIdHeaderInterceptor(userId: string) {
   return api.interceptors.request.use((config) => {

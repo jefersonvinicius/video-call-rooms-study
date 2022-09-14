@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import styled from 'styled-components';
-import { io } from 'socket.io-client';
+import { useUserSocket } from 'contexts/UserSocketContext';
 import { useUser } from 'modules/users/state';
+import { useEffect, useRef } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
+import styled from 'styled-components';
+
 export const Video = styled.video`
   width: 100px;
   height: 100px;
@@ -11,63 +12,52 @@ export const Video = styled.video`
 export default function RoomPage() {
   const { roomId } = useParams();
   const user = useUser();
+  const { getSocket, errorOnConnect, isConnectionLost } = useUserSocket();
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const [isConnectionLost, setIsConnectionLost] = useState(false);
-  const [errorOnConnect, setErrorOnConnect] = useState<any | null>(null);
-
   useEffect(() => {
-    let mediaRecorder: MediaRecorder | null = null;
-    const socket = user?.socket ?? io('http://localhost:3333');
-    socket.on('connect', () => {
-      setErrorOnConnect(null);
-      setIsConnectionLost(false);
-      console.log('socket connected');
-      navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          mediaRecorder = new MediaRecorder(stream);
-          mediaRecorder.addEventListener('dataavailable', handleDataAvailable);
-          mediaRecorder.addEventListener('stop', handleStopRecorder);
-          mediaRecorder.start(1000);
-        }
-      });
-    });
+    const socket = getSocket();
+    if (!socket) return;
 
-    socket.on('disconnect', (reason: string) => {
-      console.log('disconnect because of ' + reason);
-      if (['io server disconnect', 'transport close'].includes(reason)) {
-        setIsConnectionLost(true);
+    let mediaRecorder: MediaRecorder | null = null;
+    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.addEventListener('dataavailable', handleDataAvailable);
+        mediaRecorder.addEventListener('stop', handleStopRecorder);
+        mediaRecorder.start(1000);
       }
     });
 
-    socket.on('connect_error', (error) => {
-      console.log('connect error with ' + error);
-      setErrorOnConnect(error);
-    });
+    function handleJoinedUser(user: any) {
+      console.log(`User ${user.name} joined in room`);
+    }
 
     function handleDataAvailable(event: BlobEvent) {
       console.log('sending data: ', event.data);
-      socket.emit('stream-video', event.data);
+      socket?.emit('stream-video', event.data);
     }
 
     function handleStopRecorder() {
       console.log('Stopping on server');
-      socket.emit('stop-stream-video');
+      socket?.emit('stop-stream-video');
     }
 
     return () => {
       mediaRecorder?.stream.getTracks().forEach((track) => track.stop());
       mediaRecorder?.stop();
-      socket.disconnect();
+      socket.off('joined-user', handleJoinedUser);
     };
-  }, [user?.socket]);
+  }, [getSocket, user]);
 
   const link = `${window.location.origin}/waiting-room/${roomId}`;
 
   async function handleCopyLink() {
     await navigator.clipboard.writeText(link);
   }
+
+  if (!getSocket()) return <Navigate to="/" replace />;
 
   return (
     <div className="App">
