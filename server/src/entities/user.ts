@@ -13,7 +13,7 @@ export class User {
     return this._id;
   }
 
-  render() {
+  json() {
     return { id: this._id, created_at: this.createdAt.toISOString() };
   }
 }

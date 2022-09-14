@@ -1,5 +1,5 @@
 import cors from 'cors';
-import express from 'express';
+import express, { response } from 'express';
 import http from 'http';
 import fs from 'node:fs';
 import { Server, Socket } from 'socket.io';
@@ -7,6 +7,8 @@ import { CONFIG } from './config';
 import { Room } from './entities/room';
 import { User } from './entities/user';
 import { log } from './shared/logging';
+import { UserSocket } from './user-socket';
+import { UserSocketCollection } from './user-socket-collection';
 import { VideoStream } from './video-stream';
 
 const app = express();
@@ -18,38 +20,6 @@ const io = new Server(server, {
   },
 });
 
-class UserSocket {
-  constructor(readonly user: User, readonly socket: Socket) {}
-}
-
-class UserSocketCollection {
-  private socketIdToUserSocket = new Map<string, UserSocket>();
-  private userIdToUserSocket = new Map<string, UserSocket>();
-
-  add(userSocket: UserSocket) {
-    this.socketIdToUserSocket.set(userSocket.socket.id, userSocket);
-    this.userIdToUserSocket.set(userSocket.user.id, userSocket);
-  }
-
-  getBySocketId(socketId: string) {
-    return this.socketIdToUserSocket.get(socketId);
-  }
-
-  getByUserId(userId: string) {
-    return this.userIdToUserSocket.get(userId);
-  }
-
-  delete(socketId: string) {
-    const user = this.getBySocketId(socketId)?.user;
-    if (user) this.userIdToUserSocket.delete(user.id);
-    this.socketIdToUserSocket.delete(socketId);
-  }
-
-  all() {
-    return Array.from(this.socketIdToUserSocket.values());
-  }
-}
-
 const rooms = new Map<string, Room>();
 const socketsCollection = new UserSocketCollection();
 const streams = new Map<string, VideoStream>();
@@ -57,11 +27,25 @@ const usersCache = new Map<string, User>();
 
 io.on('connection', (socket) => {
   log(`Socket ${socket.id} connected`);
-  streams.set(socket.id, new VideoStream(socket));
+  const videoStream = new VideoStream(socket);
+  streams.set(socket.id, videoStream);
+
+  // videoStream.stream.on('data', (chunk) => {
+  //   log(`Sending data from socket ${socket.id}`);
+  //   socket.rooms.forEach((room) => {
+  //     const userId = socketsCollection.getBySocketId(socket.id)?.user.id;
+  //     if (!userId) return;
+
+  //     socket.to(room).emit('stream-video', { userId, buffer: chunk });
+  //   });
+  // });
 
   socket.on('set-user-info', (params: { userId: string }, callback?: () => void) => {
+    const user = usersCache.get(params.userId);
+    if (!user) return;
+
     log(`Setting user id ${params.userId} to socket ${socket.id}`);
-    const userSocket = new UserSocket(usersCache.get(params.userId)!, socket);
+    const userSocket = new UserSocket(user, socket);
     socketsCollection.add(userSocket);
     callback?.();
   });
@@ -109,7 +93,7 @@ app.get('/users/videos/:videoName', (request, response) => {
 app.post('/users', (request, response) => {
   const user = new User();
   usersCache.set(user.id, user);
-  return response.json(user.render());
+  return response.json(user.json());
 });
 
 app.post('/rooms', async (request, response) => {
@@ -120,25 +104,36 @@ app.post('/rooms', async (request, response) => {
   room.addUser(user);
   rooms.set(room.id, room);
   await socketsCollection.getByUserId(userId)?.socket.join(room.id);
-  return response.json(room.render());
+  return response.json(room.json());
+});
+
+app.get('/waiting-room/:roomId', (request, response) => {
+  const room = rooms.get(request.params.roomId);
+  if (!room) return response.status(404).json({ message: 'Room not found' });
+
+  return response.json({ room: room.json() });
 });
 
 app.get('/rooms/:roomId', (request, response) => {
   const room = rooms.get(request.params.roomId);
   if (!room) return response.status(404).json({ message: 'Room not found' });
 
-  return response.json({ room: room.render() });
+  const userId = request.header('userId');
+  const user = room.users.find((u) => u.id === userId);
+  if (!user) return response.status(403).json({ message: 'You not in this room' });
+
+  return response.json({ room: room.json() });
 });
 
-function handleAppError() {
-  socketsCollection.all().forEach((socket) => socket.socket.disconnect(true));
-  Array.from(streams.values()).forEach((stream) => stream.destroy());
-  io.close(() => console.log('Socket server closed'));
-  server.close(() => console.log('HTTP Server closed'));
-}
+// function handleAppError() {
+//   socketsCollection.all().forEach((socket) => socket.socket.disconnect(true));
+//   Array.from(streams.values()).forEach((stream) => stream.destroy());
+//   io.close(() => console.log('Socket server closed'));
+//   server.close(() => console.log('HTTP Server closed'));
+// }
 
-process.on('SIGINT', handleAppError);
-process.on('uncaughtException', handleAppError);
-process.on('unhandledRejection', handleAppError);
+// process.on('SIGINT', handleAppError);
+// process.on('uncaughtException', handleAppError);
+// process.on('unhandledRejection', handleAppError);
 
 export default server;

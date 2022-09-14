@@ -19,8 +19,8 @@ export class Room {
     this._users = this.users.filter((user) => user.id !== userId);
   }
 
-  render() {
-    return { id: this._id, created_at: this.createdAt.toISOString(), users: this.users.map((u) => u.render()) };
+  json() {
+    return { id: this._id, created_at: this.createdAt.toISOString(), users: this.users.map((u) => u.json()) };
   }
 
   get id() {

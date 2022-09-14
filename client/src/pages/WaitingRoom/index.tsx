@@ -1,19 +1,20 @@
 import React from 'react';
-import { useRoom } from 'modules/rooms/hooks/queries';
+import { useWaitingRoomQuery } from 'modules/rooms/hooks/queries';
 import { useConfigureUser } from 'modules/users/hooks';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useUserSocket } from 'contexts/UserSocketContext';
 
 export default function WaitingRoom() {
   const { roomId } = useParams();
-
   const { user } = useConfigureUser();
   const { getSocket } = useUserSocket();
-  const { room } = useRoom({ roomId });
+  const { room } = useWaitingRoomQuery({ roomId });
+  const navigate = useNavigate();
 
   function handleJoinClick() {
     getSocket()?.emit('join-room', { roomId }, () => {
       console.log('Joined!!');
+      navigate(`/rooms/${roomId}`, { replace: true });
     });
   }
 

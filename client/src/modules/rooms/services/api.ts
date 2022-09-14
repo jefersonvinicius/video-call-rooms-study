@@ -11,13 +11,22 @@ export class RoomsAPI {
 
   async fetchOne(params: { id: string }): Promise<Room> {
     const { data } = await this.api.get(`/rooms/${params.id}`);
-    return {
-      id: data.room.id,
-      createdAt: new Date(data.room.created_at),
-      users: data.room.users.map((u: any) => ({
-        id: u.id,
-        createdAt: new Date(u.created_at),
-      })),
-    };
+    return mapToRoom(data);
   }
+
+  async fetchWaitingRoom(params: { id: string }): Promise<Room> {
+    const { data } = await this.api.get(`/waiting-room/${params.id}`);
+    return mapToRoom(data);
+  }
+}
+
+function mapToRoom(data: any): Room {
+  return {
+    id: data.room.id,
+    createdAt: new Date(data.room.created_at),
+    users: data.room.users.map((u: any) => ({
+      id: u.id,
+      createdAt: new Date(u.created_at),
+    })),
+  };
 }

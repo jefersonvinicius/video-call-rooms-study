@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RecoilRoot } from 'recoil';
 import RoutesDefinition from 'routes';
 import { UserSocketProvider } from 'contexts/UserSocketContext';
+import APIInterceptors from 'components/APIInterceptors';
 
 const client = new QueryClient();
 
@@ -11,9 +12,12 @@ function App() {
     <QueryClientProvider client={client}>
       <RecoilRoot>
         <UserSocketProvider>
-          <BrowserRouter>
-            <RoutesDefinition />
-          </BrowserRouter>
+          <>
+            <APIInterceptors />
+            <BrowserRouter>
+              <RoutesDefinition />
+            </BrowserRouter>
+          </>
         </UserSocketProvider>
       </RecoilRoot>
     </QueryClientProvider>
