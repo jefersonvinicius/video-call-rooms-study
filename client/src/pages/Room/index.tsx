@@ -1,3 +1,4 @@
+import { useUserPeerConnection } from 'contexts/UserPeerConnection';
 import { useUserSocket } from 'contexts/UserSocketContext';
 import { useRoomQuery } from 'modules/rooms/hooks/queries';
 import { User } from 'modules/users';
@@ -12,70 +13,91 @@ export const Video = styled.video`
   height: 100px;
 `;
 
+type Offer = {
+  type: RTCSdpType;
+  sdp: string;
+};
+
 export default function RoomPage() {
   const { roomId } = useParams();
   const { room, errorOnRoomQuery, isLoadingRoom, refetchRoom } = useRoomQuery({ roomId });
   const currentUser = useUser();
   const { getSocket, errorOnConnect, isConnectionLost } = useUserSocket();
+  const { peerConnection } = useUserPeerConnection();
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  console.log({ errorOnRoomQuery });
-
-  const others = useMemo(() => {
-    return room?.users.filter((u) => u.id !== currentUser?.id);
-  }, [room?.users, currentUser?.id]);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   useEffect(() => {
+    const mediRecorderRef = mediaRecorder.current;
     return () => {
-      mediaRecorder.current?.stream.getTracks().forEach((track) => track.stop());
-      mediaRecorder.current?.stop();
+      mediRecorderRef?.stream.getTracks().forEach((track) => track.stop());
+      mediRecorderRef?.stop();
     };
   }, []);
 
   useEffect(() => {
     const socket = getSocket();
-    if (!socket || errorOnRoomQuery || isLoadingRoom || mediaRecorder.current?.state === 'recording') return;
+    if (!socket || errorOnRoomQuery || isLoadingRoom || !peerConnection || mediaRecorder.current?.state === 'recording')
+      return;
 
     if (mediaRecorder.current) {
       mediaRecorder.current.stop();
     }
 
     navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        mediaRecorder.current = new MediaRecorder(stream);
-        mediaRecorder.current.addEventListener('dataavailable', handleDataAvailable);
-        mediaRecorder.current.addEventListener('stop', handleStopRecorder);
-        mediaRecorder.current.start(1000);
-      }
+      if (!videoRef.current || !remoteVideoRef.current) return;
+
+      const remoteStream = new MediaStream();
+      stream.getTracks().forEach((track) => peerConnection.addTrack(track, stream));
+
+      peerConnection.ontrack = (event) => {
+        console.log('ON TRACK');
+        event.streams[0].getTracks().forEach((track) => {
+          remoteStream.addTrack(track);
+        });
+      };
+
+      videoRef.current.srcObject = stream;
+      remoteVideoRef.current.srcObject = remoteStream;
+
+      //   mediaRecorder.current = new MediaRecorder(stream);
+      //   mediaRecorder.current.addEventListener('dataavailable', handleDataAvailable);
+      //   mediaRecorder.current.addEventListener('stop', handleStopRecorder);
+      //   mediaRecorder.current.start(1000);
     });
 
-    socket.on('joined-user', handleJoinedUser);
-    socket.on('stream-video', (args) => {
-      console.log('ARGS: ', args);
+    socket.on('offer', async (params: { roomId: string; offer: Offer; user: User }) => {
+      console.log('Offer received', params);
+      peerConnection.setRemoteDescription(new RTCSessionDescription(params.offer));
+      const answerDescription = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answerDescription);
+      const answer = { type: answerDescription.type, sdp: answerDescription.sdp };
+      socket.emit('answer', { roomId, answer, user: params.user });
     });
 
-    function handleJoinedUser({ user }: { user: User }) {
-      console.log({ user });
-      console.log(`User ${user.id} joined in room`);
-      refetchRoom();
-    }
+    // socket.on('joined-user', handleJoinedUser);
 
-    function handleDataAvailable(event: BlobEvent) {
-      console.log('sending data: ', event.data);
-      socket?.emit('stream-video', event.data);
-    }
+    // function handleJoinedUser({ user }: { user: User }) {
+    //   console.log({ user });
+    //   console.log(`User ${user.id} joined in room`);
+    //   refetchRoom();
+    // }
 
-    function handleStopRecorder() {
-      console.log('Stopping on server');
-      socket?.emit('stop-stream-video');
-    }
+    // function handleDataAvailable(event: BlobEvent) {
+    //   console.log('sending data: ', event.data);
+    //   socket?.emit('stream-video', event.data);
+    // }
+
+    // function handleStopRecorder() {
+    //   console.log('Stopping on server');
+    //   socket?.emit('stop-stream-video');
+    // }
 
     return () => {
-      socket.off('joined-user', handleJoinedUser);
+      // socket.off('joined-user', handleJoinedUser);
     };
-  }, [errorOnRoomQuery, getSocket, isLoadingRoom, room, currentUser, refetchRoom]);
+  }, [errorOnRoomQuery, getSocket, isLoadingRoom, room, currentUser, refetchRoom, peerConnection, roomId]);
 
   const link = `${window.location.origin}/waiting-room/${roomId}`;
 
@@ -100,9 +122,10 @@ export default function RoomPage() {
           {isConnectionLost && <p>Connection lost, trying to reconnect...</p>}
           {errorOnConnect && <p>Error on connect: {errorOnConnect?.message}</p>}
           <Video ref={videoRef} autoPlay />
-          {others?.map((user) => (
+          <Video ref={remoteVideoRef} autoPlay />
+          {/* {others?.map((user) => (
             <span key={user.id}>{user.id}</span>
-          ))}
+          ))} */}
         </>
       )}
     </div>

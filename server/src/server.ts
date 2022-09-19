@@ -20,6 +20,13 @@ const io = new Server(server, {
   },
 });
 
+type Offer = {
+  sdp: string;
+  type: string;
+};
+
+type Answer = Offer;
+
 const rooms = new Map<string, Room>();
 const socketsCollection = new UserSocketCollection();
 const streams = new Map<string, VideoStream>();
@@ -70,6 +77,23 @@ io.on('connection', (socket) => {
     console.log(io.sockets.adapter.rooms);
     io.to(roomId).emit('joined-user', { user });
     callback?.();
+  });
+
+  socket.on('offer', (params: { roomId: string; offer: Offer }) => {
+    log(`Offer created ${JSON.stringify(params)}`);
+    const roomId = params.roomId;
+    const offerData = { ...params, user: socketsCollection.getBySocketId(socket.id)?.user.json() };
+    io.to(roomId).emit('offer', offerData);
+  });
+
+  socket.on('answer', async (params: { roomId: string; answer: Answer; user: any }) => {
+    log(`Answer created ${JSON.stringify(params)}`);
+    const socketUser = socketsCollection.getByUserId(params.user.id);
+    const roomId = params.roomId;
+    rooms.get(roomId)?.addUser(socketUser?.user!);
+    await socketUser?.socket.join(roomId);
+
+    io.to(roomId).emit('answer', params);
   });
 
   socket.on('disconnect', () => {
@@ -124,6 +148,21 @@ app.get('/rooms/:roomId', (request, response) => {
 
   return response.json({ room: room.json() });
 });
+
+// app.get('/videos/:userId', (request, response) => {
+//   const { userId } = request.params;
+//   const socket = socketsCollection.getByUserId(userId)?.socket;
+//   const videoStream = streams.get(socket?.id!);
+//   if (!videoStream) return response.sendStatus(404);
+
+//   response.writeHead(206, {
+//     'Content-Range': `bytes ${videoStream.stream.writableLength}-${videoStream.stream.writableLength}/${videoStream.stream.writableLength}`,
+//     'Accept-Ranges': 'bytes',
+//     'Content-Length': videoStream.stream.writableLength,
+//     'Content-Type': 'video/webm',
+//   });
+//   videoStream.stream.pipe(response);
+// });
 
 // function handleAppError() {
 //   socketsCollection.all().forEach((socket) => socket.socket.disconnect(true));
