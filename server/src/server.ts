@@ -10,6 +10,7 @@ import { log } from './shared/logging';
 import { UserSocket } from './user-socket';
 import { UserSocketCollection } from './user-socket-collection';
 import { VideoStream } from './video-stream';
+import { CandidatePlainObject } from './webrtc/candidate';
 
 const app = express();
 app.use(cors());
@@ -77,6 +78,16 @@ io.on('connection', (socket) => {
     console.log(io.sockets.adapter.rooms);
     io.to(roomId).emit('joined-user', { user });
     callback?.();
+  });
+
+  socket.on('offer-candidate', (params: { roomId: string; candidate: CandidatePlainObject }) => {
+    log(`Offer candidate ${params}`);
+    io.to(params.roomId).emit('offer-candidate', { candidate: params.candidate });
+  });
+
+  socket.on('answer-candidate', (params: { roomId: string; candidate: CandidatePlainObject }) => {
+    log(`Answer candidate ${params}`);
+    io.to(params.roomId).emit('answer-candidate', { candidate: params.candidate });
   });
 
   socket.on('offer', (params: { roomId: string; offer: Offer }) => {
