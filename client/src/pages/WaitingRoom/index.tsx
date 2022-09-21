@@ -1,22 +1,43 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useWaitingRoomQuery } from 'modules/rooms/hooks/queries';
 import { useConfigureUser } from 'modules/users/hooks';
 import { useParams } from 'react-router-dom';
 import { useUserSocket } from 'contexts/UserSocketContext';
 import { useUserPeerConnection } from 'contexts/UserPeerConnection';
+import { useUserMedia } from 'contexts/UserMedia';
 
 export default function WaitingRoom() {
   const { roomId } = useParams();
   const { user } = useConfigureUser();
   const { getSocket } = useUserSocket();
   const { peerConnection } = useUserPeerConnection();
+  const { userMedia, setUserMedia } = useUserMedia();
   const { room } = useWaitingRoomQuery({ roomId });
+
+  const preview = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    navigator.mediaDevices.getUserMedia({ video: true }).then((media) => {
+      setUserMedia(media);
+      preview.current!.srcObject = media;
+    });
+  }, [setUserMedia]);
+
   // const navigate = useNavigate();
 
   async function handleJoinClick() {
+    userMedia?.getTracks().forEach((track) => {
+      peerConnection.addTrack(track);
+    });
+
     peerConnection!.onicecandidate = (event) => {
       console.log('onicecandidate');
-      console.log(event.candidate);
+      console.log(event.candidate?.toJSON());
+      socket?.emit('offer-candidate', { roomId, candidate: event.candidate?.toJSON() });
+    };
+
+    peerConnection.onicecandidateerror = (error) => {
+      console.log('onicecandidateerror', error);
     };
 
     const offerDescription = await peerConnection.createOffer();
@@ -35,10 +56,11 @@ export default function WaitingRoom() {
       peerConnection.setRemoteDescription(answerDescription);
     });
     socket?.emit('offer', { roomId, offer });
-    // () => {
-    //   console.log('Joined!!');
-    //   navigate(`/rooms/${roomId}`, { replace: true });
-    // }
+
+    socket?.on('answer-candidate', (params: { candidate: any }) => {
+      console.log('answer-candidate', params);
+      peerConnection.addIceCandidate(params.candidate);
+    });
   }
 
   return (
@@ -51,7 +73,8 @@ export default function WaitingRoom() {
           return <li key={user.id}>{user.id}</li>;
         })}
       </ul>
-      <button onClick={handleJoinClick} disabled={!user}>
+      <video ref={preview} autoPlay />
+      <button onClick={handleJoinClick} disabled={!user || !userMedia}>
         Join
       </button>
     </div>

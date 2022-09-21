@@ -5,6 +5,7 @@ import RoutesDefinition from 'routes';
 import { UserSocketProvider } from 'contexts/UserSocketContext';
 import APIInterceptors from 'components/APIInterceptors';
 import { UserPeerConnectionProvider } from 'contexts/UserPeerConnection';
+import { UserMediaProvider } from 'contexts/UserMedia';
 
 const client = new QueryClient();
 
@@ -14,12 +15,14 @@ function App() {
       <RecoilRoot>
         <UserSocketProvider>
           <UserPeerConnectionProvider>
-            <>
-              <APIInterceptors />
-              <BrowserRouter>
-                <RoutesDefinition />
-              </BrowserRouter>
-            </>
+            <UserMediaProvider>
+              <>
+                <APIInterceptors />
+                <BrowserRouter>
+                  <RoutesDefinition />
+                </BrowserRouter>
+              </>
+            </UserMediaProvider>
           </UserPeerConnectionProvider>
         </UserSocketProvider>
       </RecoilRoot>

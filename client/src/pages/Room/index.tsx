@@ -1,3 +1,4 @@
+import { useUserMedia } from 'contexts/UserMedia';
 import { useUserPeerConnection } from 'contexts/UserPeerConnection';
 import { useUserSocket } from 'contexts/UserSocketContext';
 import { useRoomQuery } from 'modules/rooms/hooks/queries';
@@ -24,6 +25,8 @@ export default function RoomPage() {
   const currentUser = useUser();
   const { getSocket, errorOnConnect, isConnectionLost } = useUserSocket();
   const { peerConnection } = useUserPeerConnection();
+  const { userMedia, setUserMedia } = useUserMedia();
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -45,14 +48,26 @@ export default function RoomPage() {
       mediaRecorder.current.stop();
     }
 
-    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+    getUserMediaOrReuse().then((stream) => {
       if (!videoRef.current || !remoteVideoRef.current) return;
 
+      // setUserMedia(stream)
+
       const remoteStream = new MediaStream();
-      stream.getTracks().forEach((track) => peerConnection.addTrack(track, stream));
+
+      peerConnection.onicecandidate = (event) => {
+        console.log('onicecandidate');
+        console.log(event.candidate?.toJSON());
+        socket.emit('answer-candidate', { roomId, candidate: event.candidate?.toJSON() });
+      };
+
+      console.log({ currentLocalDescription: peerConnection.currentLocalDescription });
+
+      if (peerConnection.currentLocalDescription)
+        stream.getTracks().forEach((track) => peerConnection.addTrack(track, stream));
 
       peerConnection.ontrack = (event) => {
-        console.log('ON TRACK');
+        console.log('ON TRACK', event);
         event.streams[0].getTracks().forEach((track) => {
           remoteStream.addTrack(track);
         });
@@ -65,6 +80,11 @@ export default function RoomPage() {
       //   mediaRecorder.current.addEventListener('dataavailable', handleDataAvailable);
       //   mediaRecorder.current.addEventListener('stop', handleStopRecorder);
       //   mediaRecorder.current.start(1000);
+    });
+
+    socket.on('offer-candidate', (params: { offerCandidate: any }) => {
+      console.log('offer-candidate', params.offerCandidate);
+      peerConnection.addIceCandidate(new RTCIceCandidate(params.offerCandidate));
     });
 
     socket.on('offer', async (params: { roomId: string; offer: Offer; user: User }) => {
@@ -94,10 +114,14 @@ export default function RoomPage() {
     //   socket?.emit('stop-stream-video');
     // }
 
+    async function getUserMediaOrReuse() {
+      return userMedia ?? navigator.mediaDevices.getUserMedia({ video: true });
+    }
+
     return () => {
       // socket.off('joined-user', handleJoinedUser);
     };
-  }, [errorOnRoomQuery, getSocket, isLoadingRoom, room, currentUser, refetchRoom, peerConnection, roomId]);
+  }, [errorOnRoomQuery, getSocket, isLoadingRoom, room, currentUser, refetchRoom, peerConnection, roomId, userMedia]);
 
   const link = `${window.location.origin}/waiting-room/${roomId}`;
 
