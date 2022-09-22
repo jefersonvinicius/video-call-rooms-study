@@ -39,10 +39,13 @@ export default function RoomPage() {
     };
   }, []);
 
+  const effectRan = useRef(false);
+
   useEffect(() => {
     const socket = getSocket();
-    if (!socket || errorOnRoomQuery || isLoadingRoom || !peerConnection || mediaRecorder.current?.state === 'recording')
-      return;
+    if (!socket || errorOnRoomQuery || isLoadingRoom || !peerConnection || effectRan.current) return;
+
+    effectRan.current = true;
 
     if (mediaRecorder.current) {
       mediaRecorder.current.stop();
@@ -56,22 +59,27 @@ export default function RoomPage() {
       const remoteStream = new MediaStream();
 
       peerConnection.onicecandidate = (event) => {
-        console.log('onicecandidate');
-        console.log(event.candidate?.toJSON());
+        if (!event.candidate) return;
+
         socket.emit('answer-candidate', { roomId, candidate: event.candidate?.toJSON() });
       };
 
-      console.log({ currentLocalDescription: peerConnection.currentLocalDescription });
-
-      if (peerConnection.currentLocalDescription)
-        stream.getTracks().forEach((track) => peerConnection.addTrack(track, stream));
-
       peerConnection.ontrack = (event) => {
         console.log('ON TRACK', event);
+        if (event.streams.length === 0) return;
+
         event.streams[0].getTracks().forEach((track) => {
           remoteStream.addTrack(track);
         });
       };
+
+      console.log({
+        currentLocalDescription: peerConnection.currentLocalDescription,
+        currentRemoteDescription: peerConnection.currentRemoteDescription,
+      });
+      stream.getTracks().forEach((track) => {
+        peerConnection.addTrack(track, stream);
+      });
 
       videoRef.current.srcObject = stream;
       remoteVideoRef.current.srcObject = remoteStream;
@@ -82,14 +90,14 @@ export default function RoomPage() {
       //   mediaRecorder.current.start(1000);
     });
 
-    socket.on('offer-candidate', (params: { offerCandidate: any }) => {
-      console.log('offer-candidate', params.offerCandidate);
-      peerConnection.addIceCandidate(new RTCIceCandidate(params.offerCandidate));
+    socket.on('offer-candidate', (params: { candidate?: RTCIceCandidateInit }) => {
+      console.log('offer-candidate', params);
+      peerConnection.addIceCandidate(new RTCIceCandidate(params.candidate));
     });
 
     socket.on('offer', async (params: { roomId: string; offer: Offer; user: User }) => {
       console.log('Offer received', params);
-      peerConnection.setRemoteDescription(new RTCSessionDescription(params.offer));
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(params.offer));
       const answerDescription = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answerDescription);
       const answer = { type: answerDescription.type, sdp: answerDescription.sdp };

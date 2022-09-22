@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useWaitingRoomQuery } from 'modules/rooms/hooks/queries';
 import { useConfigureUser } from 'modules/users/hooks';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useUserSocket } from 'contexts/UserSocketContext';
 import { useUserPeerConnection } from 'contexts/UserPeerConnection';
 import { useUserMedia } from 'contexts/UserMedia';
@@ -23,21 +23,17 @@ export default function WaitingRoom() {
     });
   }, [setUserMedia]);
 
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
 
   async function handleJoinClick() {
-    userMedia?.getTracks().forEach((track) => {
-      peerConnection.addTrack(track);
-    });
+    // userMedia?.getTracks().forEach((track) => {
+    //   peerConnection.addTrack(track);
+    // });
 
     peerConnection!.onicecandidate = (event) => {
-      console.log('onicecandidate');
-      console.log(event.candidate?.toJSON());
-      socket?.emit('offer-candidate', { roomId, candidate: event.candidate?.toJSON() });
-    };
+      if (!event.candidate) return;
 
-    peerConnection.onicecandidateerror = (error) => {
-      console.log('onicecandidateerror', error);
+      socket?.emit('offer-candidate', { roomId, candidate: event.candidate.toJSON() });
     };
 
     const offerDescription = await peerConnection.createOffer();
@@ -49,17 +45,17 @@ export default function WaitingRoom() {
     };
 
     const socket = getSocket();
-    socket?.on('answer', ({ roomId, answer }) => {
+    socket?.on('answer', async ({ roomId, answer }) => {
       console.log('ANSWER: ', roomId, answer);
-      console.log(peerConnection.currentRemoteDescription);
       const answerDescription = new RTCSessionDescription(answer);
-      peerConnection.setRemoteDescription(answerDescription);
+      await peerConnection.setRemoteDescription(answerDescription);
+      navigate(`/rooms/${roomId}`);
     });
     socket?.emit('offer', { roomId, offer });
 
-    socket?.on('answer-candidate', (params: { candidate: any }) => {
+    socket?.on('answer-candidate', (params: { candidate?: RTCIceCandidate }) => {
       console.log('answer-candidate', params);
-      peerConnection.addIceCandidate(params.candidate);
+      if (params.candidate) peerConnection.addIceCandidate(params.candidate);
     });
   }
 

@@ -6,6 +6,7 @@ import { Server, Socket } from 'socket.io';
 import { CONFIG } from './config';
 import { Room } from './entities/room';
 import { User } from './entities/user';
+import { formatObject } from './shared/json';
 import { log } from './shared/logging';
 import { UserSocket } from './user-socket';
 import { UserSocketCollection } from './user-socket-collection';
@@ -81,24 +82,24 @@ io.on('connection', (socket) => {
   });
 
   socket.on('offer-candidate', (params: { roomId: string; candidate: CandidatePlainObject }) => {
-    log(`Offer candidate ${params}`);
+    log(`Offer candidate ${formatObject(params)}`);
     io.to(params.roomId).emit('offer-candidate', { candidate: params.candidate });
   });
 
   socket.on('answer-candidate', (params: { roomId: string; candidate: CandidatePlainObject }) => {
-    log(`Answer candidate ${params}`);
+    log(`Answer candidate ${formatObject(params)}`);
     io.to(params.roomId).emit('answer-candidate', { candidate: params.candidate });
   });
 
   socket.on('offer', (params: { roomId: string; offer: Offer }) => {
-    log(`Offer created ${JSON.stringify(params)}`);
+    log(`Offer created ${formatObject(params)}`);
     const roomId = params.roomId;
     const offerData = { ...params, user: socketsCollection.getBySocketId(socket.id)?.user.json() };
     io.to(roomId).emit('offer', offerData);
   });
 
   socket.on('answer', async (params: { roomId: string; answer: Answer; user: any }) => {
-    log(`Answer created ${JSON.stringify(params)}`);
+    log(`Answer created ${formatObject(params)}`);
     const socketUser = socketsCollection.getByUserId(params.user.id);
     const roomId = params.roomId;
     rooms.get(roomId)?.addUser(socketUser?.user!);
