@@ -26,11 +26,12 @@ export default function WaitingRoom() {
   const navigate = useNavigate();
 
   async function handleJoinClick() {
-    // userMedia?.getTracks().forEach((track) => {
-    //   peerConnection.addTrack(track);
-    // });
+    userMedia?.getTracks().forEach((track) => {
+      peerConnection.addTrack(track);
+    });
 
     peerConnection!.onicecandidate = (event) => {
+      console.log('waiting room onicecandidate: ', event);
       if (!event.candidate) return;
 
       socket?.emit('offer-candidate', { roomId, candidate: event.candidate.toJSON() });
@@ -49,7 +50,7 @@ export default function WaitingRoom() {
       console.log('ANSWER: ', roomId, answer);
       const answerDescription = new RTCSessionDescription(answer);
       await peerConnection.setRemoteDescription(answerDescription);
-      navigate(`/rooms/${roomId}`);
+      // navigate(`/rooms/${roomId}`);
     });
     socket?.emit('offer', { roomId, offer });
 

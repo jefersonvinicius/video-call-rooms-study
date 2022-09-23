@@ -51,18 +51,29 @@ export default function RoomPage() {
       mediaRecorder.current.stop();
     }
 
+    const remoteStream = new MediaStream();
+
     getUserMediaOrReuse().then((stream) => {
       if (!videoRef.current || !remoteVideoRef.current) return;
 
       // setUserMedia(stream)
 
-      const remoteStream = new MediaStream();
-
       peerConnection.onicecandidate = (event) => {
+        console.log('room onicecandidate: ', event);
+
         if (!event.candidate) return;
 
         socket.emit('answer-candidate', { roomId, candidate: event.candidate?.toJSON() });
       };
+
+      console.log({
+        currentLocalDescription: peerConnection.currentLocalDescription,
+        currentRemoteDescription: peerConnection.currentRemoteDescription,
+      });
+      if (!peerConnection.currentLocalDescription)
+        stream.getTracks().forEach((track) => {
+          peerConnection.addTrack(track, stream);
+        });
 
       peerConnection.ontrack = (event) => {
         console.log('ON TRACK', event);
@@ -72,14 +83,6 @@ export default function RoomPage() {
           remoteStream.addTrack(track);
         });
       };
-
-      console.log({
-        currentLocalDescription: peerConnection.currentLocalDescription,
-        currentRemoteDescription: peerConnection.currentRemoteDescription,
-      });
-      stream.getTracks().forEach((track) => {
-        peerConnection.addTrack(track, stream);
-      });
 
       videoRef.current.srcObject = stream;
       remoteVideoRef.current.srcObject = remoteStream;
@@ -101,6 +104,7 @@ export default function RoomPage() {
       const answerDescription = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answerDescription);
       const answer = { type: answerDescription.type, sdp: answerDescription.sdp };
+
       socket.emit('answer', { roomId, answer, user: params.user });
     });
 
