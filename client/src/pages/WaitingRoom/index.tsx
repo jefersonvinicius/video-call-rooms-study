@@ -26,16 +26,25 @@ export default function WaitingRoom() {
   const navigate = useNavigate();
 
   async function handleJoinClick() {
+    const socket = getSocket();
+
+    socket?.on('answer-candidate', async (params: { candidate?: RTCIceCandidate }) => {
+      console.log('answer-candidate', params);
+      if (params.candidate) await peerConnection.addIceCandidate(params.candidate);
+    });
+
     userMedia?.getTracks().forEach((track) => {
       peerConnection.addTrack(track);
     });
 
-    peerConnection!.onicecandidate = (event) => {
+    peerConnection.addEventListener('icecandidate', handleOnIceCandidate);
+
+    function handleOnIceCandidate(event: RTCPeerConnectionIceEvent) {
       console.log('waiting room onicecandidate: ', event);
       if (!event.candidate) return;
 
       socket?.emit('offer-candidate', { roomId, candidate: event.candidate.toJSON() });
-    };
+    }
 
     const offerDescription = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offerDescription);
@@ -45,19 +54,16 @@ export default function WaitingRoom() {
       type: offerDescription.type,
     };
 
-    const socket = getSocket();
     socket?.on('answer', async ({ roomId, answer }) => {
       console.log('ANSWER: ', roomId, answer);
       const answerDescription = new RTCSessionDescription(answer);
       await peerConnection.setRemoteDescription(answerDescription);
-      // navigate(`/rooms/${roomId}`);
+
+      peerConnection.removeEventListener('icecandidate', handleOnIceCandidate);
+
+      navigate(`/rooms/${roomId}`);
     });
     socket?.emit('offer', { roomId, offer });
-
-    socket?.on('answer-candidate', (params: { candidate?: RTCIceCandidate }) => {
-      console.log('answer-candidate', params);
-      if (params.candidate) peerConnection.addIceCandidate(params.candidate);
-    });
   }
 
   return (

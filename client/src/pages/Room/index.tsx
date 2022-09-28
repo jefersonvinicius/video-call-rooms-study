@@ -52,37 +52,63 @@ export default function RoomPage() {
     }
 
     const remoteStream = new MediaStream();
+    peerConnection.getReceivers().forEach((receiver) => {
+      if (receiver.track) remoteStream.addTrack(receiver.track);
+    });
+
+    peerConnection.ontrack = (event) => {
+      console.log('ON TRACK', event);
+      if (event.streams.length === 0) return;
+
+      event.streams[0].getTracks().forEach((track) => {
+        remoteStream.addTrack(track);
+      });
+    };
+
+    peerConnection.onicecandidate = (event) => {
+      console.log('room onicecandidate: ', event);
+
+      if (!event.candidate) return;
+      socket.emit('answer-candidate', { roomId, candidate: event.candidate?.toJSON() });
+    };
+
+    peerConnection.oniceconnectionstatechange = (event) => {
+      console.log('oniceconnectionstatechange: ', peerConnection.connectionState);
+    };
+
+    socket.on('offer-candidate', async (params: { candidate?: RTCIceCandidateInit }) => {
+      console.log('offer-candidate', params);
+      await peerConnection.addIceCandidate(new RTCIceCandidate(params.candidate));
+    });
+
+    socket.on('offer', async (params: { roomId: string; offer: Offer; user: User }) => {
+      console.log('Offer received', params);
+      console.log('Setting remote description');
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(params.offer));
+      const answerDescription = await peerConnection.createAnswer();
+      console.log('Setting local description');
+      await peerConnection.setLocalDescription(answerDescription);
+      const answer = { type: answerDescription.type, sdp: answerDescription.sdp };
+
+      console.log('Sending answer');
+      socket.emit('answer', { roomId, answer, user: params.user });
+    });
 
     getUserMediaOrReuse().then((stream) => {
       if (!videoRef.current || !remoteVideoRef.current) return;
 
       // setUserMedia(stream)
 
-      peerConnection.onicecandidate = (event) => {
-        console.log('room onicecandidate: ', event);
-
-        if (!event.candidate) return;
-
-        socket.emit('answer-candidate', { roomId, candidate: event.candidate?.toJSON() });
-      };
-
       console.log({
         currentLocalDescription: peerConnection.currentLocalDescription,
         currentRemoteDescription: peerConnection.currentRemoteDescription,
       });
-      if (!peerConnection.currentLocalDescription)
+      if (!peerConnection.currentLocalDescription) {
+        console.log('Setting tracks');
         stream.getTracks().forEach((track) => {
           peerConnection.addTrack(track, stream);
         });
-
-      peerConnection.ontrack = (event) => {
-        console.log('ON TRACK', event);
-        if (event.streams.length === 0) return;
-
-        event.streams[0].getTracks().forEach((track) => {
-          remoteStream.addTrack(track);
-        });
-      };
+      }
 
       videoRef.current.srcObject = stream;
       remoteVideoRef.current.srcObject = remoteStream;
@@ -91,21 +117,6 @@ export default function RoomPage() {
       //   mediaRecorder.current.addEventListener('dataavailable', handleDataAvailable);
       //   mediaRecorder.current.addEventListener('stop', handleStopRecorder);
       //   mediaRecorder.current.start(1000);
-    });
-
-    socket.on('offer-candidate', (params: { candidate?: RTCIceCandidateInit }) => {
-      console.log('offer-candidate', params);
-      peerConnection.addIceCandidate(new RTCIceCandidate(params.candidate));
-    });
-
-    socket.on('offer', async (params: { roomId: string; offer: Offer; user: User }) => {
-      console.log('Offer received', params);
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(params.offer));
-      const answerDescription = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answerDescription);
-      const answer = { type: answerDescription.type, sdp: answerDescription.sdp };
-
-      socket.emit('answer', { roomId, answer, user: params.user });
     });
 
     // socket.on('joined-user', handleJoinedUser);
