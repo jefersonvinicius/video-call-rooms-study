@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express, { response } from 'express';
-import http from 'http';
+import https from 'node:https';
 import fs from 'node:fs';
 import { Server, Socket } from 'socket.io';
 import { CONFIG } from './config';
@@ -15,7 +15,13 @@ import { CandidatePlainObject } from './webrtc/candidate';
 
 const app = express();
 app.use(cors());
-const server = http.createServer(app);
+const server = https.createServer(
+  {
+    key: fs.readFileSync('key.pem'),
+    cert: fs.readFileSync('cert.pem'),
+  },
+  app
+);
 const io = new Server(server, {
   cors: {
     origin: '*',

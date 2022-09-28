@@ -4,7 +4,7 @@ import { useUserSocket } from 'contexts/UserSocketContext';
 import { useRoomQuery } from 'modules/rooms/hooks/queries';
 import { User } from 'modules/users';
 import { useUser } from 'modules/users/state';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { isForbiddenError } from 'services/api/errors';
 import styled from 'styled-components';
@@ -25,7 +25,7 @@ export default function RoomPage() {
   const currentUser = useUser();
   const { getSocket, errorOnConnect, isConnectionLost } = useUserSocket();
   const { peerConnection } = useUserPeerConnection();
-  const { userMedia, setUserMedia } = useUserMedia();
+  const { userMedia } = useUserMedia();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -58,11 +58,15 @@ export default function RoomPage() {
 
     peerConnection.ontrack = (event) => {
       console.log('ON TRACK', event);
-      if (event.streams.length === 0) return;
 
-      event.streams[0].getTracks().forEach((track) => {
-        remoteStream.addTrack(track);
+      peerConnection.getReceivers().forEach((receiver) => {
+        if (receiver.track) remoteStream.addTrack(receiver.track);
       });
+      // if (event.streams.length === 0) return;
+
+      // event.streams[0].getTracks().forEach((track) => {
+      //   remoteStream.addTrack(track);
+      // });
     };
 
     peerConnection.onicecandidate = (event) => {
@@ -146,7 +150,7 @@ export default function RoomPage() {
     };
   }, [errorOnRoomQuery, getSocket, isLoadingRoom, room, currentUser, refetchRoom, peerConnection, roomId, userMedia]);
 
-  const link = `${window.location.origin}/waiting-room/${roomId}`;
+  const link = `https://192.168.10.111:3000/waiting-room/${roomId}`;
 
   async function handleCopyLink() {
     await navigator.clipboard.writeText(link);
