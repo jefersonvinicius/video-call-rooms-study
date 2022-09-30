@@ -1,3 +1,4 @@
+import IconButton from 'components/IconButton';
 import { useUserMedia } from 'contexts/UserMedia';
 import { useUserPeerConnection } from 'contexts/UserPeerConnection';
 import { useUserSocket } from 'contexts/UserSocketContext';
@@ -6,13 +7,10 @@ import { User } from 'modules/users';
 import { useUser } from 'modules/users/state';
 import { useEffect, useRef } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { isForbiddenError } from 'services/api/errors';
-import styled from 'styled-components';
-
-export const Video = styled.video`
-  width: 100px;
-  height: 100px;
-`;
+import { MdOutlineContentCopy } from 'react-icons/md';
+import { RoomContainer, RoomHeaderBox, Video, VideosGrid } from './styles';
 
 type Offer = {
   type: RTCSdpType;
@@ -58,7 +56,7 @@ export default function RoomPage() {
 
     peerConnection.ontrack = (event) => {
       console.log('ON TRACK', event);
-
+      console.log('RECEIVERS: ', peerConnection.getReceivers());
       peerConnection.getReceivers().forEach((receiver) => {
         if (receiver.track) remoteStream.addTrack(receiver.track);
       });
@@ -150,35 +148,39 @@ export default function RoomPage() {
     };
   }, [errorOnRoomQuery, getSocket, isLoadingRoom, room, currentUser, refetchRoom, peerConnection, roomId, userMedia]);
 
-  const link = `https://192.168.10.111:3000/waiting-room/${roomId}`;
+  const link = `http://localhost:3000/waiting-room/${roomId}`;
 
   async function handleCopyLink() {
     await navigator.clipboard.writeText(link);
+    toast.info('Room link copied!');
   }
 
   if (isForbiddenError(errorOnRoomQuery)) return <Navigate to="/" replace />;
   if (!getSocket()) return <Navigate to="/" replace />;
 
   return (
-    <div className="App">
+    <RoomContainer>
       {isLoadingRoom ? (
         <span>Loading...</span>
       ) : (
         <>
-          <p>Room ID: {roomId}</p>
-          <p>
-            Share: {link}
-            <button onClick={handleCopyLink}>Copy</button>
-          </p>
+          <RoomHeaderBox>
+            <p>Room: {roomId}</p>
+            <p>
+              Share: <a href={link}>{link}</a>
+              <IconButton onClick={handleCopyLink}>
+                <MdOutlineContentCopy size={20} />
+              </IconButton>
+            </p>
+          </RoomHeaderBox>
           {isConnectionLost && <p>Connection lost, trying to reconnect...</p>}
           {errorOnConnect && <p>Error on connect: {errorOnConnect?.message}</p>}
-          <Video ref={videoRef} autoPlay />
-          <Video ref={remoteVideoRef} autoPlay />
-          {/* {others?.map((user) => (
-            <span key={user.id}>{user.id}</span>
-          ))} */}
+          <VideosGrid>
+            <Video ref={videoRef} autoPlay />
+            <Video ref={remoteVideoRef} autoPlay />
+          </VideosGrid>
         </>
       )}
-    </div>
+    </RoomContainer>
   );
 }

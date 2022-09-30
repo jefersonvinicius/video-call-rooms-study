@@ -1,4 +1,5 @@
 import { AxiosInstance } from 'axios';
+import { createUserFromAPI } from 'services/api/parsers';
 import { Room } from '..';
 
 export class RoomsAPI {
@@ -24,9 +25,6 @@ function mapToRoom(data: any): Room {
   return {
     id: data.room.id,
     createdAt: new Date(data.room.created_at),
-    users: data.room.users.map((u: any) => ({
-      id: u.id,
-      createdAt: new Date(u.created_at),
-    })),
+    users: data.room.users.map(createUserFromAPI),
   };
 }

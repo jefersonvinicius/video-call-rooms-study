@@ -1,11 +1,11 @@
 import React from 'react';
 import { API } from 'services/api';
 import { useNavigate } from 'react-router-dom';
-import { useConfigureUser } from 'modules/users/hooks';
 import { useUserSocket } from 'contexts/UserSocketContext';
+import { useUser } from 'modules/users/state';
 
 export default function MainPage() {
-  const { user } = useConfigureUser();
+  const user = useUser();
   const { isConnecting } = useUserSocket();
   const navigate = useNavigate();
 
@@ -16,7 +16,12 @@ export default function MainPage() {
 
   return (
     <div className="App">
-      <p>Your ID: {user?.id}</p>
+      <div>
+        <div>
+          <strong>{user?.name}</strong>
+        </div>
+        <small>{user?.id}</small>
+      </div>
       <button onClick={handleCreateRoomClick} disabled={isConnecting}>
         Create Room
       </button>

@@ -4,7 +4,7 @@ export class User {
   private _id: string;
   public createdAt: Date;
 
-  constructor() {
+  constructor(readonly name: string) {
     this._id = UUID.v4();
     this.createdAt = new Date();
   }
@@ -14,6 +14,6 @@ export class User {
   }
 
   json() {
-    return { id: this._id, created_at: this.createdAt.toISOString() };
+    return { id: this._id, name: this.name, created_at: this.createdAt.toISOString() };
   }
 }

@@ -1,14 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { useWaitingRoomQuery } from 'modules/rooms/hooks/queries';
-import { useConfigureUser } from 'modules/users/hooks';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useUserSocket } from 'contexts/UserSocketContext';
 import { useUserPeerConnection } from 'contexts/UserPeerConnection';
 import { useUserMedia } from 'contexts/UserMedia';
+import { useUser } from 'modules/users/state';
 
 export default function WaitingRoom() {
   const { roomId } = useParams();
-  const { user } = useConfigureUser();
+  const user = useUser();
   const { getSocket } = useUserSocket();
   const { peerConnection } = useUserPeerConnection();
   const { userMedia, setUserMedia } = useUserMedia();
@@ -73,7 +73,12 @@ export default function WaitingRoom() {
       <h3>Users</h3>
       <ul>
         {room?.users.map((user) => {
-          return <li key={user.id}>{user.id}</li>;
+          return (
+            <li key={user.id}>
+              <span>{user.name} - </span>
+              <small>({user.id})</small>
+            </li>
+          );
         })}
       </ul>
       <video ref={preview} autoPlay />

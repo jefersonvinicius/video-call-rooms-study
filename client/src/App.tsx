@@ -6,6 +6,10 @@ import { UserSocketProvider } from 'contexts/UserSocketContext';
 import APIInterceptors from 'components/APIInterceptors';
 import { UserPeerConnectionProvider } from 'contexts/UserPeerConnection';
 import { UserMediaProvider } from 'contexts/UserMedia';
+import { ToastContainer } from 'react-toastify';
+
+import 'react-toastify/dist/ReactToastify.css';
+import GlobalStyles from 'components/GlobalStyles';
 
 const client = new QueryClient();
 
@@ -18,6 +22,8 @@ function App() {
             <UserMediaProvider>
               <>
                 <APIInterceptors />
+                <ToastContainer />
+                <GlobalStyles />
                 <BrowserRouter>
                   <RoutesDefinition />
                 </BrowserRouter>

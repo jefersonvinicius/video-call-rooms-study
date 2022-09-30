@@ -1,11 +1,12 @@
 import { AxiosInstance } from 'axios';
+import { createUserFromAPI } from 'services/api/parsers';
 import { User } from '..';
 
 export class UsersAPI {
   constructor(readonly api: AxiosInstance) {}
 
-  async create(): Promise<User> {
-    const { data } = await this.api.post('/users');
-    return { id: data.id, createdAt: new Date(data.created_at) };
+  async create(username: string): Promise<User> {
+    const { data } = await this.api.post('/users', { name: username });
+    return createUserFromAPI(data);
   }
 }

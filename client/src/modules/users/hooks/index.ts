@@ -7,7 +7,7 @@ export function useConfigureUser() {
 
   useEffect(() => {
     let mounted = true;
-    API.Users.create().then((created) => {
+    API.Users.create('').then((created) => {
       if (mounted) setUser(created);
     });
 

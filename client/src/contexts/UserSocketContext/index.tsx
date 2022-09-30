@@ -27,7 +27,9 @@ export function UserSocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
 
-    const socketInstance = io('http://localhost:3333');
+    const socketInstance = io(process.env.REACT_APP_BASE_API_URL!, {
+      extraHeaders: { 'ngrok-skip-browser-warning': 'yes' },
+    });
 
     setErrorOnConnect(null);
     setIsConnectionLost(false);

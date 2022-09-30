@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express, { response } from 'express';
-import https from 'node:https';
+import http from 'node:http';
 import fs from 'node:fs';
 import { Server, Socket } from 'socket.io';
 import { CONFIG } from './config';
@@ -15,13 +15,8 @@ import { CandidatePlainObject } from './webrtc/candidate';
 
 const app = express();
 app.use(cors());
-const server = https.createServer(
-  {
-    key: fs.readFileSync('key.pem'),
-    cert: fs.readFileSync('cert.pem'),
-  },
-  app
-);
+app.use(express.json());
+const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -133,7 +128,10 @@ app.get('/users/videos/:videoName', (request, response) => {
 });
 
 app.post('/users', (request, response) => {
-  const user = new User();
+  const name = request.body?.name?.trim() ?? '';
+  if (!name) return response.status(400).json({ message: 'Missing user name' });
+
+  const user = new User(name);
   usersCache.set(user.id, user);
   return response.json(user.json());
 });
@@ -165,6 +163,12 @@ app.get('/rooms/:roomId', (request, response) => {
   if (!user) return response.status(403).json({ message: 'You not in this room' });
 
   return response.json({ room: room.json() });
+});
+
+app.get('/debug', (_, response) => {
+  return response.json({
+    'Quantidade de Salas': rooms.size,
+  });
 });
 
 // app.get('/videos/:userId', (request, response) => {

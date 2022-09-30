@@ -3,7 +3,8 @@ import { RoomsAPI } from 'modules/rooms/services/api';
 import { UsersAPI } from 'modules/users/services/api';
 
 export const api = axios.create({
-  baseURL: 'https://0.0.0.0:3333',
+  baseURL: process.env.REACT_APP_BASE_API_URL!,
+  headers: { 'ngrok-skip-browser-warning': 'yes' },
 });
 
 const userServices = new UsersAPI(api);
