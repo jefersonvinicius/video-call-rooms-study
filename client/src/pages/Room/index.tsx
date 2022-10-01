@@ -10,7 +10,8 @@ import { Navigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { isForbiddenError } from 'services/api/errors';
 import { MdOutlineContentCopy } from 'react-icons/md';
-import { RoomContainer, RoomHeaderBox, Video, VideosGrid } from './styles';
+import { RoomContainer, RoomHeaderBox, VideosGrid } from './styles';
+import VideoCall from './VideoCall';
 
 type Offer = {
   type: RTCSdpType;
@@ -60,11 +61,9 @@ export default function RoomPage() {
       peerConnection.getReceivers().forEach((receiver) => {
         if (receiver.track) remoteStream.addTrack(receiver.track);
       });
-      // if (event.streams.length === 0) return;
-
-      // event.streams[0].getTracks().forEach((track) => {
-      //   remoteStream.addTrack(track);
-      // });
+      refetchRoom().then(() => {
+        console.log('ROOM FETCHED');
+      });
     };
 
     peerConnection.onicecandidate = (event) => {
@@ -176,8 +175,12 @@ export default function RoomPage() {
           {isConnectionLost && <p>Connection lost, trying to reconnect...</p>}
           {errorOnConnect && <p>Error on connect: {errorOnConnect?.message}</p>}
           <VideosGrid>
-            <Video ref={videoRef} autoPlay />
-            <Video ref={remoteVideoRef} autoPlay />
+            <VideoCall videoRef={videoRef} user={currentUser!} currentUser={currentUser!} />
+            <VideoCall
+              videoRef={remoteVideoRef}
+              user={{ id: 'any', createdAt: new Date(), name: 'Mocked' }}
+              currentUser={currentUser!}
+            />
           </VideosGrid>
         </>
       )}

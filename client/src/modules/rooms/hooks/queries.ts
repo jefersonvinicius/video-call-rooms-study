@@ -20,7 +20,7 @@ export function useRoomQuery({ roomId }: RoomParams) {
 }
 
 export function useWaitingRoomQuery({ roomId }: RoomParams) {
-  const { data, isFetching } = useQuery(['room', roomId], () => API.Rooms.fetchWaitingRoom({ id: roomId! }), {
+  const { data, isFetching } = useQuery(['waiting-room', roomId], () => API.Rooms.fetchWaitingRoom({ id: roomId! }), {
     enabled: !!roomId,
   });
 

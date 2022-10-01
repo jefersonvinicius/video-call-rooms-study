@@ -14,7 +14,3 @@ export const RoomHeaderBox = styled.div`
 export const VideosGrid = styled.div`
   display: flex;
 `;
-
-export const Video = styled.video`
-  flex: 1;
-`;

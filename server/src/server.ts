@@ -94,14 +94,18 @@ io.on('connection', (socket) => {
 
   socket.on('offer', (params: { roomId: string; offer: Offer }) => {
     log(`Offer created ${formatObject(params)}`);
+    const user = socketsCollection.getBySocketId(socket.id)?.user;
+
+    user!.sdp = params.offer.sdp;
     const roomId = params.roomId;
-    const offerData = { ...params, user: socketsCollection.getBySocketId(socket.id)?.user.json() };
+    const offerData = { ...params, user: user?.json() };
     io.to(roomId).emit('offer', offerData);
   });
 
   socket.on('answer', async (params: { roomId: string; answer: Answer; user: any }) => {
     log(`Answer created ${formatObject(params)}`);
     const socketUser = socketsCollection.getByUserId(params.user.id);
+    socketUser!.user!.sdp = params.answer.sdp;
     const roomId = params.roomId;
     rooms.get(roomId)?.addUser(socketUser?.user!);
     await socketUser?.socket.join(roomId);
