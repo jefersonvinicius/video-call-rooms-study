@@ -1,9 +1,10 @@
+import { log } from '@app/shared/logging';
 import { UUID } from '@app/shared/uuid';
 
 export class User {
   private _id: string;
   public createdAt: Date;
-  public sdp: string | undefined | null;
+  private _sdp: string | undefined | null;
 
   constructor(readonly name: string) {
     this._id = UUID.v4();
@@ -12,6 +13,15 @@ export class User {
 
   get id() {
     return this._id;
+  }
+
+  set sdp(value: string | null | undefined) {
+    log(`Setting sdp to user ${this.name}`);
+    this._sdp = value;
+  }
+
+  get sdp() {
+    return this._sdp;
   }
 
   json() {

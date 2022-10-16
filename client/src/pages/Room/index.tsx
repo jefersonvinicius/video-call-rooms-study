@@ -50,6 +50,8 @@ export default function RoomPage() {
       mediaRecorder.current.stop();
     }
 
+    console.log('RECEIVERS: ', peerConnection.getReceivers());
+
     const remoteStream = new MediaStream();
     peerConnection.getReceivers().forEach((receiver) => {
       if (receiver.track) remoteStream.addTrack(receiver.track);
@@ -59,7 +61,10 @@ export default function RoomPage() {
       console.log('ON TRACK', event);
       console.log('RECEIVERS: ', peerConnection.getReceivers());
       peerConnection.getReceivers().forEach((receiver) => {
-        if (receiver.track) remoteStream.addTrack(receiver.track);
+        if (receiver.track) {
+          console.log({ receiverTrack: receiver.track });
+          remoteStream.addTrack(receiver.track);
+        }
       });
       refetchRoom().then(() => {
         console.log('ROOM FETCHED');
@@ -93,9 +98,15 @@ export default function RoomPage() {
 
       console.log('Sending answer');
       socket.emit('answer', { roomId, answer, user: params.user });
+      setTimeout(() => {
+        refetchRoom().then(() => {
+          console.log('ROOM FETCHED 2');
+        });
+      }, 1000);
     });
 
     getUserMediaOrReuse().then((stream) => {
+      console.log('STREAM_ID: ', stream.id);
       if (!videoRef.current || !remoteVideoRef.current) return;
 
       // setUserMedia(stream)

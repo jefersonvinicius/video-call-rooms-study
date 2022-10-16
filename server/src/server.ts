@@ -104,13 +104,15 @@ io.on('connection', (socket) => {
 
   socket.on('answer', async (params: { roomId: string; answer: Answer; user: any }) => {
     log(`Answer created ${formatObject(params)}`);
-    const socketUser = socketsCollection.getByUserId(params.user.id);
-    socketUser!.user!.sdp = params.answer.sdp;
-    const roomId = params.roomId;
-    rooms.get(roomId)?.addUser(socketUser?.user!);
-    await socketUser?.socket.join(roomId);
 
-    io.to(roomId).emit('answer', params);
+    const socketUserReceivedOffer = socketsCollection.getBySocketId(socket.id);
+    if (socketUserReceivedOffer) socketUserReceivedOffer.user.sdp = params.answer.sdp;
+
+    const socketUserAnswered = socketsCollection.getByUserId(params.user.id);
+    rooms.get(params.roomId)?.addUser(socketUserAnswered?.user!);
+    await socketUserAnswered?.socket.join(params.roomId);
+
+    io.to(params.roomId).emit('answer', params);
   });
 
   socket.on('disconnect', () => {
