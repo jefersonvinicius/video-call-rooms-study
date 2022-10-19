@@ -60,6 +60,12 @@ io.on('connection', (socket) => {
     callback?.();
   });
 
+  socket.on('set-stream-id', ({ streamId }) => {
+    const user = socketsCollection.getBySocketId(socket.id)?.user;
+    log(`Setting stream id ${streamId} to ${user?.name}`);
+    if (user) user.streamId = streamId;
+  });
+
   socket.on('stream-video', (data) => {
     log(`Receiving data from socket ${socket.id}`);
     streams.get(socket.id)?.write(data);
