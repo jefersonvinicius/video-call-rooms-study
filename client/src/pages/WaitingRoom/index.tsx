@@ -9,7 +9,7 @@ import { useUser } from 'modules/users/state';
 export default function WaitingRoom() {
   const { roomId } = useParams();
   const user = useUser();
-  const { getSocket } = useUserSocket();
+  const { getSocket, setMediaStreamId } = useUserSocket();
   const { peerConnection } = useUserPeerConnection();
   const { userMedia, setUserMedia } = useUserMedia();
   const { room } = useWaitingRoomQuery({ roomId });
@@ -18,10 +18,11 @@ export default function WaitingRoom() {
 
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: true }).then((media) => {
+      setMediaStreamId(media.id);
       setUserMedia(media);
       preview.current!.srcObject = media;
     });
-  }, [setUserMedia]);
+  }, [setMediaStreamId, setUserMedia]);
 
   const navigate = useNavigate();
 
@@ -34,7 +35,7 @@ export default function WaitingRoom() {
     });
 
     userMedia?.getTracks().forEach((track) => {
-      peerConnection.addTrack(track);
+      peerConnection.addTrack(track, userMedia);
     });
 
     peerConnection.addEventListener('icecandidate', handleOnIceCandidate);

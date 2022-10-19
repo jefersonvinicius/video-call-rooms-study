@@ -5,7 +5,7 @@ import { useUserSocket } from 'contexts/UserSocketContext';
 import { useRoomQuery } from 'modules/rooms/hooks/queries';
 import { User } from 'modules/users';
 import { useUser } from 'modules/users/state';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { isForbiddenError } from 'services/api/errors';
@@ -22,12 +22,11 @@ export default function RoomPage() {
   const { roomId } = useParams();
   const { room, errorOnRoomQuery, isLoadingRoom, refetchRoom } = useRoomQuery({ roomId });
   const currentUser = useUser();
-  const { getSocket, errorOnConnect, isConnectionLost } = useUserSocket();
-  const { peerConnection } = useUserPeerConnection();
+  const { getSocket, errorOnConnect, isConnectionLost, setMediaStreamId } = useUserSocket();
+  const { peerConnection, rawStreams } = useUserPeerConnection();
   const { userMedia } = useUserMedia();
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const videosRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
 
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   useEffect(() => {
@@ -40,36 +39,36 @@ export default function RoomPage() {
 
   const effectRan = useRef(false);
 
+  const streams = useMemo(() => {
+    return (
+      room?.users.reduce((result, user) => {
+        const userMediaStream = rawStreams.find((stream) => stream.id === user.streamId)!;
+        result[user.id] = userMediaStream;
+        return result;
+      }, {} as { [key: string]: MediaStream }) ?? {}
+    );
+  }, [rawStreams, room?.users]);
+
+  useEffect(() => {
+    Object.entries(videosRefs.current)
+      .filter(([id]) => id !== currentUser?.id)
+      .forEach(([id, video]) => {
+        video!.srcObject = streams[id];
+      });
+  }, [currentUser?.id, streams]);
+
   useEffect(() => {
     const socket = getSocket();
     if (!socket || errorOnRoomQuery || isLoadingRoom || !peerConnection || effectRan.current) return;
 
     effectRan.current = true;
 
-    if (mediaRecorder.current) {
-      mediaRecorder.current.stop();
-    }
+    if (mediaRecorder.current) mediaRecorder.current.stop();
 
-    console.log('RECEIVERS: ', peerConnection.getReceivers());
-
-    const remoteStream = new MediaStream();
-    peerConnection.getReceivers().forEach((receiver) => {
-      if (receiver.track) remoteStream.addTrack(receiver.track);
-    });
-
-    peerConnection.ontrack = (event) => {
-      console.log('ON TRACK', event);
-      console.log('RECEIVERS: ', peerConnection.getReceivers());
-      peerConnection.getReceivers().forEach((receiver) => {
-        if (receiver.track) {
-          console.log({ receiverTrack: receiver.track });
-          remoteStream.addTrack(receiver.track);
-        }
-      });
-      refetchRoom().then(() => {
-        console.log('ROOM FETCHED');
-      });
-    };
+    // const remoteStream = new MediaStream();
+    // peerConnection.getReceivers().forEach((receiver) => {
+    //   if (receiver.track) remoteStream.addTrack(receiver.track);
+    // });
 
     peerConnection.onicecandidate = (event) => {
       console.log('room onicecandidate: ', event);
@@ -107,9 +106,7 @@ export default function RoomPage() {
 
     getUserMediaOrReuse().then((stream) => {
       console.log('STREAM_ID: ', stream.id);
-      if (!videoRef.current || !remoteVideoRef.current) return;
-
-      // setUserMedia(stream)
+      setMediaStreamId(stream.id);
 
       console.log({
         currentLocalDescription: peerConnection.currentLocalDescription,
@@ -122,32 +119,13 @@ export default function RoomPage() {
         });
       }
 
-      videoRef.current.srcObject = stream;
-      remoteVideoRef.current.srcObject = remoteStream;
+      videosRefs.current[currentUser!.id]!.srcObject = stream;
 
       //   mediaRecorder.current = new MediaRecorder(stream);
       //   mediaRecorder.current.addEventListener('dataavailable', handleDataAvailable);
       //   mediaRecorder.current.addEventListener('stop', handleStopRecorder);
       //   mediaRecorder.current.start(1000);
     });
-
-    // socket.on('joined-user', handleJoinedUser);
-
-    // function handleJoinedUser({ user }: { user: User }) {
-    //   console.log({ user });
-    //   console.log(`User ${user.id} joined in room`);
-    //   refetchRoom();
-    // }
-
-    // function handleDataAvailable(event: BlobEvent) {
-    //   console.log('sending data: ', event.data);
-    //   socket?.emit('stream-video', event.data);
-    // }
-
-    // function handleStopRecorder() {
-    //   console.log('Stopping on server');
-    //   socket?.emit('stop-stream-video');
-    // }
 
     async function getUserMediaOrReuse() {
       return userMedia ?? navigator.mediaDevices.getUserMedia({ video: true });
@@ -156,7 +134,18 @@ export default function RoomPage() {
     return () => {
       // socket.off('joined-user', handleJoinedUser);
     };
-  }, [errorOnRoomQuery, getSocket, isLoadingRoom, room, currentUser, refetchRoom, peerConnection, roomId, userMedia]);
+  }, [
+    errorOnRoomQuery,
+    getSocket,
+    isLoadingRoom,
+    room,
+    currentUser,
+    refetchRoom,
+    peerConnection,
+    roomId,
+    userMedia,
+    setMediaStreamId,
+  ]);
 
   const link = `http://localhost:3000/waiting-room/${roomId}`;
 
@@ -186,12 +175,14 @@ export default function RoomPage() {
           {isConnectionLost && <p>Connection lost, trying to reconnect...</p>}
           {errorOnConnect && <p>Error on connect: {errorOnConnect?.message}</p>}
           <VideosGrid>
-            <VideoCall videoRef={videoRef} user={currentUser!} currentUser={currentUser!} />
-            <VideoCall
-              videoRef={remoteVideoRef}
-              user={{ id: 'any', createdAt: new Date(), name: 'Mocked' }}
-              currentUser={currentUser!}
-            />
+            {room?.users.map((user) => (
+              <VideoCall
+                key={user.id}
+                videoRef={(ref) => (videosRefs.current[user.id] = ref)}
+                user={user}
+                currentUser={currentUser!}
+              />
+            ))}
           </VideosGrid>
         </>
       )}

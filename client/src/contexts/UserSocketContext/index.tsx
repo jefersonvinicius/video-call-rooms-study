@@ -8,6 +8,7 @@ type UserSocketContextValue = {
   isConnectionLost: boolean;
   errorOnConnect: any | null;
   isConnecting: boolean;
+  setMediaStreamId: (streamId: string) => void;
 };
 
 const Context = createContext<UserSocketContextValue>({
@@ -15,6 +16,7 @@ const Context = createContext<UserSocketContextValue>({
   isConnectionLost: false,
   errorOnConnect: null,
   isConnecting: false,
+  setMediaStreamId: () => {},
 });
 
 export function UserSocketProvider({ children }: { children: ReactNode }) {
@@ -59,8 +61,15 @@ export function UserSocketProvider({ children }: { children: ReactNode }) {
     return socket.current;
   }, []);
 
+  const setMediaStreamId = useCallback(
+    (value: string) => {
+      getSocket()?.emit('set-stream-id', { streamId: value });
+    },
+    [getSocket]
+  );
+
   return (
-    <Context.Provider value={{ getSocket, isConnectionLost, errorOnConnect, isConnecting }}>
+    <Context.Provider value={{ getSocket, isConnectionLost, errorOnConnect, isConnecting, setMediaStreamId }}>
       {children}
     </Context.Provider>
   );

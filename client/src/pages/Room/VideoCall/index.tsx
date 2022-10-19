@@ -27,7 +27,7 @@ export const Info = styled.div`
 `;
 
 type Props = {
-  videoRef?: React.RefObject<HTMLVideoElement>;
+  videoRef?: React.RefObject<HTMLVideoElement> | ((instance: HTMLVideoElement | null) => void);
   user: User;
   currentUser: User;
 };

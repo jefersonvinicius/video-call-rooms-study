@@ -1,7 +1,8 @@
-import { createContext, ReactNode, useContext, useRef } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 
 type UserPeerConnectionValue = {
   peerConnection: RTCPeerConnection;
+  rawStreams: MediaStream[];
 };
 
 const Context = createContext<UserPeerConnectionValue>({} as UserPeerConnectionValue);
@@ -18,7 +19,16 @@ const peerConnectionConfig = {
 export function UserPeerConnectionProvider({ children }: { children: ReactNode }) {
   const peerConnection = useRef(new RTCPeerConnection(peerConnectionConfig));
 
-  return <Context.Provider value={{ peerConnection: peerConnection.current }}>{children}</Context.Provider>;
+  const [rawStreams, setRawStreams] = useState<MediaStream[]>([]);
+
+  useEffect(() => {
+    peerConnection.current.ontrack = (event) => {
+      console.log('ON TRACK', event);
+      setRawStreams([...event.streams]);
+    };
+  }, []);
+
+  return <Context.Provider value={{ peerConnection: peerConnection.current, rawStreams }}>{children}</Context.Provider>;
 }
 
 export function useUserPeerConnection() {
