@@ -26,6 +26,10 @@ export function UserPeerConnectionProvider({ children }: { children: ReactNode }
       console.log('ON TRACK', event);
       setRawStreams([...event.streams]);
     };
+
+    peerConnection.current.onconnectionstatechange = (event) => {
+      console.log('onconnectionstatechange: ', event);
+    };
   }, []);
 
   return <Context.Provider value={{ peerConnection: peerConnection.current, rawStreams }}>{children}</Context.Provider>;

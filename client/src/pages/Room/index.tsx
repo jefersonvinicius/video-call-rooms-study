@@ -89,10 +89,12 @@ export default function RoomPage() {
     socket.on('offer', async (params: { roomId: string; offer: Offer; user: User }) => {
       console.log('Offer received', params);
       console.log('Setting remote description');
+      if (!peerConnection.currentRemoteDescription) {
+      }
       await peerConnection.setRemoteDescription(new RTCSessionDescription(params.offer));
       const answerDescription = await peerConnection.createAnswer();
       console.log('Setting local description');
-      await peerConnection.setLocalDescription(answerDescription);
+      if (!peerConnection.currentLocalDescription) await peerConnection.setLocalDescription(answerDescription);
       const answer = { type: answerDescription.type, sdp: answerDescription.sdp };
 
       console.log('Sending answer');

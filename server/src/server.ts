@@ -115,8 +115,10 @@ io.on('connection', (socket) => {
     if (socketUserReceivedOffer) socketUserReceivedOffer.user.sdp = params.answer.sdp;
 
     const socketUserAnswered = socketsCollection.getByUserId(params.user.id);
-    rooms.get(params.roomId)?.addUser(socketUserAnswered?.user!);
-    await socketUserAnswered?.socket.join(params.roomId);
+    if (!socketUserAnswered?.socket.rooms.has(params.roomId)) {
+      rooms.get(params.roomId)?.addUser(socketUserAnswered?.user!);
+      await socketUserAnswered?.socket.join(params.roomId);
+    }
 
     io.to(params.roomId).emit('answer', params);
   });
